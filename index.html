@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OkCity Music Links</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 480px; margin: 0 auto; padding: 20px; text-align: center; background-color: #f9f9f9; }
+        h1 { color: #333; margin-bottom: 30px; }
+        input { display: block; width: 100%; box-sizing: border-box; margin: 10px 0; padding: 12px; border: 1px solid #ddd; border-radius: 8px; }
+        button { width: 100%; padding: 12px; background: #222; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        button:hover { background: #444; }
+        .auth-toggle { color: #666; font-size: 0.9em; margin-top: 15px; cursor: pointer; text-decoration: underline; }
+        
+        /* 用戶列表樣式 */
+        .user-list { margin-top: 40px; text-align: left; }
+        .user-card { background: white; border-radius: 12px; padding: 15px; margin-bottom: 12px; display: flex; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05); cursor: pointer; transition: transform 0.2s; }
+        .user-card:hover { transform: translateY(-2px); }
+        .user-card img { width: 45px; height: 45px; border-radius: 50%; margin-right: 15px; object-fit: cover; }
+        .user-card b { font-size: 1.1em; color: #333; }
+        
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <h1>🎵 OkCity Music</h1>
+    
+    <div id="login-box">
+        <input type="email" id="l-email" placeholder="Email">
+        <input type="password" id="l-pass" placeholder="密碼">
+        <button onclick="handleLogin()">登入</button>
+        <div class="auth-toggle" onclick="toggleAuth()">沒有帳號？點此註冊</div>
+    </div>
+
+    <div id="register-box" class="hidden">
+        <input type="text" id="r-name" placeholder="你的暱稱 / 藝名">
+        <input type="email" id="r-email" placeholder="Email">
+        <input type="password" id="r-pass" placeholder="密碼">
+        <button onclick="handleRegister()">註冊</button>
+        <div class="auth-toggle" onclick="toggleAuth()">已有帳號？返回登入</div>
+    </div>
+
+    <hr style="margin: 40px 0; border: 0; border-top: 1px solid #eee;">
+    
+    <h3>🌟 探索創作者</h3>
+    <div id="creators-list" class="user-list">載入中...</div>
+
+    <script>
+        const API_URL = "https://script.google.com/macros/s/AKfycbztvsyTRM_Ud1UBzJaBtjFvjyf-bhfNX5kb0VJorJLyaXcQisunCw0VXw3UHUOwSKHL/exec"; // ★請替換
+
+        function toggleAuth() {
+            document.getElementById('login-box').classList.toggle('hidden');
+            document.getElementById('register-box').classList.toggle('hidden');
+        }
+
+        async function handleLogin() {
+            const btn = document.querySelector('#login-box button');
+            btn.innerText = "登入中...";
+            const res = await fetch(API_URL, {
+                method: "POST",
+                body: JSON.stringify({
+                    action: "login",
+                    email: document.getElementById('l-email').value,
+                    password: document.getElementById('l-pass').value
+                })
+            });
+            const data = await res.json();
+            if(data.success) {
+                localStorage.setItem("uid", data.uid);
+                window.location.href = `user.html?uid=${data.uid}`;
+            } else {
+                alert(data.message);
+                btn.innerText = "登入";
+            }
+        }
+
+        async function handleRegister() {
+            const btn = document.querySelector('#register-box button');
+            btn.innerText = "註冊中...";
+            const res = await fetch(API_URL, {
+                method: "POST",
+                body: JSON.stringify({
+                    action: "register",
+                    name: document.getElementById('r-name').value,
+                    email: document.getElementById('r-email').value,
+                    password: document.getElementById('r-pass').value
+                })
+            });
+            const data = await res.json();
+            if(data.success) {
+                alert("註冊成功，請登入！");
+                toggleAuth();
+            } else {
+                alert("註冊失敗：" + data.message);
+            }
+            btn.innerText = "註冊";
+        }
+
+        // 載入創作者列表
+        fetch(`${API_URL}?action=getUsers`)
+            .then(r => r.json())
+            .then(users => {
+                const list = document.getElementById('creators-list');
+                list.innerHTML = users.map(u => `
+                    <div class="user-card" onclick="location.href='user.html?uid=${u.uid}'">
+                        <img src="${u.profileImage}">
+                        <b>${u.name}</b>
+                    </div>
+                `).join('');
+            });
+    </script>
+</body>
+</html>
