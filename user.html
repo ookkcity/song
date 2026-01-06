@@ -16,18 +16,31 @@
         .share-link { color: #007bff; text-decoration: none; font-size: 0.9em; border: 1px solid #007bff; padding: 5px 10px; border-radius: 5px; }
         
         /* 彈窗樣式 */
-        #modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 100; }
+        #modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 100; overflow-y: auto; }
         .modal-content { background: white; margin: 50px auto; padding: 25px; width: 90%; max-width: 400px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
-        .modal-content input { width: 100%; box-sizing: border-box; margin-bottom: 10px; padding: 10px; border: 1px solid #ddd; border-radius: 6px; }
-        .modal-content h3 { margin-top: 0; }
-        .actions { text-align: right; margin-top: 15px; }
-        .actions button { padding: 8px 15px; cursor: pointer; border-radius: 6px; border: none; }
+        
+        .input-group { margin-bottom: 15px; }
+        .input-group label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 0.9em; }
+        input { width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid #ddd; border-radius: 6px; }
+        
+        /* 自動抓取區塊 */
+        .fetch-box { display: flex; gap: 5px; margin-bottom: 5px; }
+        .btn-fetch { background: #1DB954; color: white; border: none; padding: 0 15px; border-radius: 6px; cursor: pointer; white-space: nowrap; font-weight: bold; }
+        .btn-fetch:hover { background: #17a74a; }
+        .btn-fetch:disabled { background: #ccc; cursor: not-allowed; }
+
+        /* 預覽封面 */
+        #preview-cover { display: none; width: 100%; height: 200px; object-fit: cover; border-radius: 8px; margin-bottom: 10px; background: #eee; }
+
+        .actions { text-align: right; margin-top: 20px; border-top: 1px solid #eee; padding-top: 15px; }
+        .actions button { padding: 10px 20px; cursor: pointer; border-radius: 6px; border: none; margin-left: 5px; }
+        .btn-cancel { background: #eee; }
         .btn-save { background: #000; color: white; }
     </style>
 </head>
 <body>
     <div class="header">
-        <h2>歌曲列表</h2>
+        <h2>我的歌曲列表</h2>
         <button id="add-btn" class="btn-add" onclick="showModal()" style="display:none;">+ 新增歌曲</button>
     </div>
 
@@ -36,23 +49,45 @@
     <div id="modal">
         <div class="modal-content">
             <h3>新增單曲</h3>
-            <input id="s-title" placeholder="歌曲名稱 (必填)">
-            <input id="s-cover" placeholder="封面圖片網址 (必填, e.g., imgur)">
-            <p style="font-size:0.8em; color:#666; margin:5px 0;">輸入各大平台連結 (選填)：</p>
-            <input id="s-spotify" placeholder="Spotify Link">
-            <input id="s-apple" placeholder="Apple Music Link">
-            <input id="s-kkbox" placeholder="KKBox Link">
-            <input id="s-youtube" placeholder="YouTube Link">
+            
+            <div class="input-group">
+                <label>1. 輸入 Spotify 歌曲連結 (自動抓取)</label>
+                <div class="fetch-box">
+                    <input id="s-spotify" placeholder="https://open.spotify.com/track/..." oninput="checkSpotifyInput()">
+                    <button id="btn-fetch" class="btn-fetch" onclick="fetchInfo()">抓取</button>
+                </div>
+            </div>
+
+            <hr style="border:0; border-top:1px dashed #ddd; margin: 15px 0;">
+
+            <img id="preview-cover">
+            
+            <div class="input-group">
+                <label>歌名 (可修改)</label>
+                <input id="s-title" placeholder="等待抓取...">
+            </div>
+            
+            <div class="input-group">
+                <label>封面網址</label>
+                <input id="s-cover" placeholder="等待抓取..." readonly style="background:#f5f5f5; color:#777;">
+            </div>
+
+            <div class="input-group">
+                <label>其他平台連結 (選填)</label>
+                <input id="s-apple" placeholder="Apple Music Link" style="margin-bottom:5px;">
+                <input id="s-kkbox" placeholder="KKBox Link" style="margin-bottom:5px;">
+                <input id="s-youtube" placeholder="YouTube Link">
+            </div>
             
             <div class="actions">
-                <button onclick="closeModal()">取消</button>
+                <button class="btn-cancel" onclick="closeModal()">取消</button>
                 <button class="btn-save" onclick="saveSong()">儲存發布</button>
             </div>
         </div>
     </div>
 
     <script>
-        const API_URL = "https://script.google.com/macros/s/AKfycbztvsyTRM_Ud1UBzJaBtjFvjyf-bhfNX5kb0VJorJLyaXcQisunCw0VXw3UHUOwSKHL/exec"; // ★請替換
+        const API_URL = "你https://script.google.com/macros/s/AKfycbzf5nq4HNJy-lzPy9BIDqm9ByR2dmTEu5wE_LItSPuIqRrkhe6b1hd7NwNakuryxEY2/exec"; // ★請替換
         const params = new URLSearchParams(window.location.search);
         const pageUid = params.get('uid');
         const myUid = localStorage.getItem("uid");
@@ -62,7 +97,7 @@
             document.getElementById('add-btn').style.display = 'block';
         }
 
-        // 載入資料
+        // 載入列表
         fetch(`${API_URL}?action=getSongs&uid=${pageUid}`)
             .then(r => r.json())
             .then(songs => {
@@ -85,15 +120,70 @@
         function showModal() { document.getElementById('modal').style.display = 'block'; }
         function closeModal() { document.getElementById('modal').style.display = 'none'; }
 
+        function checkSpotifyInput() {
+            // 簡單的 UX 優化：有輸入才亮起抓取按鈕
+            /* 實際不需要特別做，因為按鈕預設可用 */
+        }
+
+        // --- 新增：自動抓取 Spotify 資訊 ---
+        async function fetchInfo() {
+            const spotifyUrl = document.getElementById('s-spotify').value;
+            const fetchBtn = document.getElementById('btn-fetch');
+            const titleInput = document.getElementById('s-title');
+            const coverInput = document.getElementById('s-cover');
+            const imgPreview = document.getElementById('preview-cover');
+
+            if (!spotifyUrl) { alert("請先輸入 Spotify 網址"); return; }
+
+            fetchBtn.innerText = "⏳";
+            fetchBtn.disabled = true;
+            titleInput.value = "讀取中...";
+            
+            try {
+                const res = await fetch(API_URL, {
+                    method: "POST",
+                    body: JSON.stringify({
+                        action: "getSpotifyInfo",
+                        url: spotifyUrl
+                    })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    titleInput.value = data.title;
+                    coverInput.value = data.coverUrl;
+                    imgPreview.src = data.coverUrl;
+                    imgPreview.style.display = "block";
+                } else {
+                    alert(data.message);
+                    titleInput.value = "";
+                }
+            } catch (e) {
+                alert("連線錯誤");
+            } finally {
+                fetchBtn.innerText = "抓取";
+                fetchBtn.disabled = false;
+            }
+        }
+
+        // --- 儲存歌曲 ---
         async function saveSong() {
             const saveBtn = document.querySelector('.btn-save');
+            const title = document.getElementById('s-title').value;
+            const cover = document.getElementById('s-cover').value;
+
+            if(!title || !cover) {
+                alert("請先完成歌曲資訊抓取或手動輸入");
+                return;
+            }
+
             saveBtn.innerText = "處理中...";
             
             const payload = {
                 action: "addSong",
                 uid: myUid,
-                title: document.getElementById('s-title').value,
-                coverUrl: document.getElementById('s-cover').value,
+                title: title,
+                coverUrl: cover,
                 links: {
                     spotify: document.getElementById('s-spotify').value,
                     apple: document.getElementById('s-apple').value,
@@ -111,7 +201,7 @@
             if(data.success) {
                 location.reload();
             } else {
-                alert("錯誤");
+                alert("儲存失敗");
                 saveBtn.innerText = "儲存發布";
             }
         }
