@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>創作者主頁</title>
+    <style>
+        body { font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #f9f9f9; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .btn-add { background: #000; color: white; border: none; padding: 8px 15px; border-radius: 20px; cursor: pointer; font-size: 0.9em; }
+        
+        .song-card { background: white; padding: 15px; border-radius: 12px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .song-info { display: flex; align-items: center; }
+        .song-info img { width: 60px; height: 60px; border-radius: 8px; margin-right: 15px; object-fit: cover; background: #eee; }
+        .song-title { font-weight: bold; font-size: 1.1em; color: #333; }
+        .share-link { color: #007bff; text-decoration: none; font-size: 0.9em; border: 1px solid #007bff; padding: 5px 10px; border-radius: 5px; }
+        
+        /* 彈窗樣式 */
+        #modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 100; }
+        .modal-content { background: white; margin: 50px auto; padding: 25px; width: 90%; max-width: 400px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+        .modal-content input { width: 100%; box-sizing: border-box; margin-bottom: 10px; padding: 10px; border: 1px solid #ddd; border-radius: 6px; }
+        .modal-content h3 { margin-top: 0; }
+        .actions { text-align: right; margin-top: 15px; }
+        .actions button { padding: 8px 15px; cursor: pointer; border-radius: 6px; border: none; }
+        .btn-save { background: #000; color: white; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h2>歌曲列表</h2>
+        <button id="add-btn" class="btn-add" onclick="showModal()" style="display:none;">+ 新增歌曲</button>
+    </div>
+
+    <div id="songs-container">載入中...</div>
+
+    <div id="modal">
+        <div class="modal-content">
+            <h3>新增單曲</h3>
+            <input id="s-title" placeholder="歌曲名稱 (必填)">
+            <input id="s-cover" placeholder="封面圖片網址 (必填, e.g., imgur)">
+            <p style="font-size:0.8em; color:#666; margin:5px 0;">輸入各大平台連結 (選填)：</p>
+            <input id="s-spotify" placeholder="Spotify Link">
+            <input id="s-apple" placeholder="Apple Music Link">
+            <input id="s-kkbox" placeholder="KKBox Link">
+            <input id="s-youtube" placeholder="YouTube Link">
+            
+            <div class="actions">
+                <button onclick="closeModal()">取消</button>
+                <button class="btn-save" onclick="saveSong()">儲存發布</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = "https://script.google.com/macros/s/AKfycbztvsyTRM_Ud1UBzJaBtjFvjyf-bhfNX5kb0VJorJLyaXcQisunCw0VXw3UHUOwSKHL/exec"; // ★請替換
+        const params = new URLSearchParams(window.location.search);
+        const pageUid = params.get('uid');
+        const myUid = localStorage.getItem("uid");
+
+        // 權限判斷
+        if (pageUid === myUid) {
+            document.getElementById('add-btn').style.display = 'block';
+        }
+
+        // 載入資料
+        fetch(`${API_URL}?action=getSongs&uid=${pageUid}`)
+            .then(r => r.json())
+            .then(songs => {
+                const container = document.getElementById('songs-container');
+                if(songs.length === 0) {
+                    container.innerHTML = "<p style='text-align:center; color:#999;'>暫無歌曲</p>";
+                    return;
+                }
+                container.innerHTML = songs.map(s => `
+                    <div class="song-card">
+                        <div class="song-info">
+                            <img src="${s.coverUrl}" onerror="this.src='https://via.placeholder.com/60'">
+                            <div class="song-title">${s.title}</div>
+                        </div>
+                        <a href="song.html?id=${s.songId}" class="share-link" target="_blank">分享頁 ↗</a>
+                    </div>
+                `).join('');
+            });
+
+        function showModal() { document.getElementById('modal').style.display = 'block'; }
+        function closeModal() { document.getElementById('modal').style.display = 'none'; }
+
+        async function saveSong() {
+            const saveBtn = document.querySelector('.btn-save');
+            saveBtn.innerText = "處理中...";
+            
+            const payload = {
+                action: "addSong",
+                uid: myUid,
+                title: document.getElementById('s-title').value,
+                coverUrl: document.getElementById('s-cover').value,
+                links: {
+                    spotify: document.getElementById('s-spotify').value,
+                    apple: document.getElementById('s-apple').value,
+                    kkbox: document.getElementById('s-kkbox').value,
+                    youtube: document.getElementById('s-youtube').value
+                }
+            };
+
+            const res = await fetch(API_URL, {
+                method: "POST",
+                body: JSON.stringify(payload)
+            });
+            
+            const data = await res.json();
+            if(data.success) {
+                location.reload();
+            } else {
+                alert("錯誤");
+                saveBtn.innerText = "儲存發布";
+            }
+        }
+    </script>
+</body>
+</html>
