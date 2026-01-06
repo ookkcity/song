@@ -4,14 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Listen to Music</title>
+    <script src="config.js"></script>
     <style>
-        body, html { height: 100%; margin: 0; padding: 0; font-family: sans-serif; overflow: hidden; }
+        body, html { height: 100%; margin: 0; padding: 0; font-family: sans-serif; overflow: hidden; background-color: #111; }
         
         /* 背景模糊層 */
         #bg-blur {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: #333 no-repeat center center; background-size: cover;
             filter: blur(30px) brightness(0.5); z-index: -1; transform: scale(1.1);
+            transition: background-image 0.5s ease;
         }
 
         .container {
@@ -20,22 +22,25 @@
         }
 
         .cover-art {
-            width: 200px; height: 200px; border-radius: 10px;
-            box-shadow: 0 15px 35px rgba(0,0,0,0.5); margin-bottom: 20px;
-            object-fit: cover; background: #000;
+            width: 220px; height: 220px; border-radius: 12px;
+            box-shadow: 0 15px 45px rgba(0,0,0,0.6); margin-bottom: 25px;
+            object-fit: cover; background: #222;
         }
 
-        h1 { font-size: 1.5em; margin: 0 0 30px 0; text-align: center; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
+        h1 { font-size: 1.6em; margin: 0 0 30px 0; text-align: center; text-shadow: 0 2px 8px rgba(0,0,0,0.8); }
+
+        /* 按鈕容器 */
+        #links-area { width: 100%; max-width: 320px; display: flex; flex-direction: column; align-items: center; }
 
         /* 按鈕樣式 */
         .platform-btn {
             display: flex; align-items: center; justify-content: center;
-            width: 100%; max-width: 300px; padding: 14px; margin-bottom: 12px;
+            width: 100%; padding: 14px; margin-bottom: 14px;
             border-radius: 30px; text-decoration: none; color: white; font-weight: bold;
-            transition: transform 0.2s; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-            background: #444; /* 預設顏色 */
+            transition: transform 0.2s, box-shadow 0.2s; box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+            background: #444; 
         }
-        .platform-btn:hover { transform: scale(1.03); }
+        .platform-btn:hover { transform: scale(1.04); box-shadow: 0 6px 20px rgba(0,0,0,0.5); }
 
         /* 各平台專屬色 */
         .spotify { background: #1DB954; color: black; }
@@ -43,61 +48,82 @@
         .kkbox { background: #00AEC8; }
         .youtube { background: #FF0000; }
         
-        .logo-icon { margin-right: 10px; font-style: normal; }
+        /* 載入動畫 */
+        .loading-text { opacity: 0.7; font-style: italic; }
     </style>
 </head>
 <body>
     <div id="bg-blur"></div>
     
     <div class="container">
-        <img id="cover" class="cover-art" src="">
-        <h1 id="title">Loading...</h1>
-        <div id="links-area" style="width:100%; display:flex; flex-direction:column; align-items:center;"></div>
+        <img id="cover" class="cover-art" src="https://via.placeholder.com/220?text=Loading..." alt="Cover Art">
+        <h1 id="title" class="loading-text">載入中...</h1>
+        <div id="links-area"></div>
     </div>
 
     <script>
-        const API_URL = "https://script.google.com/macros/s/AKfycbzf5nq4HNJy-lzPy9BIDqm9ByR2dmTEu5wE_LItSPuIqRrkhe6b1hd7NwNakuryxEY2/exec"; // ★請替換
+        // 從 CONFIG 讀取 API 網址
+        const API_URL = typeof CONFIG !== 'undefined' ? CONFIG.API_URL : "";
         const params = new URLSearchParams(window.location.search);
         const songId = params.get('id');
 
-        fetch(`${API_URL}?action=getSong&id=${songId}`)
-            .then(r => r.json())
-            .then(data => {
-                if(data.error) {
-                    document.getElementById('title').innerText = "找不到歌曲";
-                    return;
-                }
-
-                // 1. 設定畫面資訊
-                document.title = "Listen to " + data.title;
-                document.getElementById('title').innerText = data.title;
-                document.getElementById('cover').src = data.coverUrl;
-                document.getElementById('bg-blur').style.backgroundImage = `url('${data.coverUrl}')`;
-
-                // 2. 動態生成按鈕
-                const linksArea = document.getElementById('links-area');
-                const links = data.links;
-                
-                // 定義顯示邏輯與樣式
-                const platforms = [
-                    { key: 'spotify', label: 'Play on Spotify', class: 'spotify' },
-                    { key: 'apple', label: 'Apple Music', class: 'apple' },
-                    { key: 'kkbox', label: 'KKBox', class: 'kkbox' },
-                    { key: 'youtube', label: 'Watch on YouTube', class: 'youtube' }
-                ];
-
-                platforms.forEach(p => {
-                    const url = links[p.key];
-                    if (url && url.trim() !== "") {
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.target = "_blank";
-                        a.className = `platform-btn ${p.class}`;
-                        a.innerText = p.label;
-                        linksArea.appendChild(a);
+        if (!API_URL) {
+            document.getElementById('title').innerText = "配置錯誤 (API URL Missing)";
+        } else if (!songId) {
+            document.getElementById('title').innerText = "無效的連結";
+        } else {
+            // 開始抓取歌曲資料
+            fetch(`${API_URL}?action=getSong&id=${songId}`)
+                .then(r => r.json())
+                .then(data => {
+                    if(data.error) {
+                        document.getElementById('title').innerText = "歌曲不存在或已被刪除";
+                        return;
                     }
+
+                    // 1. 更新標題與圖片
+                    document.title = data.title + " - OkCity Music";
+                    const titleEl = document.getElementById('title');
+                    titleEl.innerText = data.title;
+                    titleEl.classList.remove('loading-text');
+
+                    const coverUrl = data.coverUrl || 'https://via.placeholder.com/300?text=No+Cover';
+                    document.getElementById('cover').src = coverUrl;
+                    document.getElementById('bg-blur').style.backgroundImage = `url('${coverUrl}')`;
+
+                    // 2. 動態生成按鈕
+                    const linksArea = document.getElementById('links-area');
+                    const links = data.links;
+                    
+                    const platforms = [
+                        { key: 'spotify', label: 'Play on Spotify', class: 'spotify' },
+                        { key: 'apple', label: 'Apple Music', class: 'apple' },
+                        { key: 'kkbox', label: 'KKBox', class: 'kkbox' },
+                        { key: 'youtube', label: 'Watch on YouTube', class: 'youtube' }
+                    ];
+
+                    platforms.forEach(p => {
+                        const url = links[p.key];
+                        if (url && url.trim() !== "" && url !== "undefined") {
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.target = "_blank";
+                            a.className = `platform-btn ${p.class}`;
+                            a.innerText = p.label;
+                            linksArea.appendChild(a);
+                        }
+                    });
+
+                    // 如果沒有任何連結
+                    if (linksArea.innerHTML === "") {
+                        linksArea.innerHTML = "<p style='opacity:0.6;'>目前沒有可用的播放連結</p>";
+                    }
+                })
+                .catch(err => {
+                    console.error(err);
+                    document.getElementById('title').innerText = "載入失敗，請稍後再試";
                 });
-            });
+        }
     </script>
 </body>
 </html>
