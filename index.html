@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OkCity Music Links</title>
+    <script src="config.js"></script>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 480px; margin: 0 auto; padding: 20px; text-align: center; background-color: #f9f9f9; }
         h1 { color: #333; margin-bottom: 30px; }
@@ -11,14 +12,11 @@
         button { width: 100%; padding: 12px; background: #222; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s; }
         button:hover { background: #444; }
         .auth-toggle { color: #666; font-size: 0.9em; margin-top: 15px; cursor: pointer; text-decoration: underline; }
-        
-        /* 用戶列表樣式 */
         .user-list { margin-top: 40px; text-align: left; }
         .user-card { background: white; border-radius: 12px; padding: 15px; margin-bottom: 12px; display: flex; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05); cursor: pointer; transition: transform 0.2s; }
         .user-card:hover { transform: translateY(-2px); }
         .user-card img { width: 45px; height: 45px; border-radius: 50%; margin-right: 15px; object-fit: cover; }
         .user-card b { font-size: 1.1em; color: #333; }
-        
         .hidden { display: none; }
     </style>
 </head>
@@ -46,7 +44,8 @@
     <div id="creators-list" class="user-list">載入中...</div>
 
     <script>
-        const API_URL = "https://script.google.com/macros/s/AKfycbzf5nq4HNJy-lzPy9BIDqm9ByR2dmTEu5wE_LItSPuIqRrkhe6b1hd7NwNakuryxEY2/exec"; // ★請替換
+        // 檢查 CONFIG 是否正確載入
+        const API_URL = typeof CONFIG !== 'undefined' ? CONFIG.API_URL : "";
 
         function toggleAuth() {
             document.getElementById('login-box').classList.toggle('hidden');
@@ -54,60 +53,81 @@
         }
 
         async function handleLogin() {
+            if(!API_URL) return alert("配置錯誤：找不到 API URL");
             const btn = document.querySelector('#login-box button');
             btn.innerText = "登入中...";
-            const res = await fetch(API_URL, {
-                method: "POST",
-                body: JSON.stringify({
-                    action: "login",
-                    email: document.getElementById('l-email').value,
-                    password: document.getElementById('l-pass').value
-                })
-            });
-            const data = await res.json();
-            if(data.success) {
-                localStorage.setItem("uid", data.uid);
-                window.location.href = `user.html?uid=${data.uid}`;
-            } else {
-                alert(data.message);
+            try {
+                const res = await fetch(API_URL, {
+                    method: "POST",
+                    body: JSON.stringify({
+                        action: "login",
+                        email: document.getElementById('l-email').value,
+                        password: document.getElementById('l-pass').value
+                    })
+                });
+                const data = await res.json();
+                if(data.success) {
+                    localStorage.setItem("uid", data.uid);
+                    window.location.href = `user.html?uid=${data.uid}`;
+                } else {
+                    alert(data.message);
+                }
+            } catch (e) {
+                alert("連線失敗，請檢查網路或 GAS 部署狀態");
+            } finally {
                 btn.innerText = "登入";
             }
         }
 
         async function handleRegister() {
+            if(!API_URL) return alert("配置錯誤：找不到 API URL");
             const btn = document.querySelector('#register-box button');
             btn.innerText = "註冊中...";
-            const res = await fetch(API_URL, {
-                method: "POST",
-                body: JSON.stringify({
-                    action: "register",
-                    name: document.getElementById('r-name').value,
-                    email: document.getElementById('r-email').value,
-                    password: document.getElementById('r-pass').value
-                })
-            });
-            const data = await res.json();
-            if(data.success) {
-                alert("註冊成功，請登入！");
-                toggleAuth();
-            } else {
-                alert("註冊失敗：" + data.message);
+            try {
+                const res = await fetch(API_URL, {
+                    method: "POST",
+                    body: JSON.stringify({
+                        action: "register",
+                        name: document.getElementById('r-name').value,
+                        email: document.getElementById('r-email').value,
+                        password: document.getElementById('r-pass').value
+                    })
+                });
+                const data = await res.json();
+                if(data.success) {
+                    alert("註冊成功，請登入！");
+                    toggleAuth();
+                } else {
+                    alert("註冊失敗：" + data.message);
+                }
+            } catch (e) {
+                alert("連線失敗");
+            } finally {
+                btn.innerText = "註冊";
             }
-            btn.innerText = "註冊";
         }
 
         // 載入創作者列表
-        fetch(`${API_URL}?action=getUsers`)
-            .then(r => r.json())
-            .then(users => {
-                const list = document.getElementById('creators-list');
-                list.innerHTML = users.map(u => `
-                    <div class="user-card" onclick="location.href='user.html?uid=${u.uid}'">
-                        <img src="${u.profileImage}">
-                        <b>${u.name}</b>
-                    </div>
-                `).join('');
-            });
+        if (API_URL) {
+            fetch(`${API_URL}?action=getUsers`)
+                .then(r => r.json())
+                .then(users => {
+                    const list = document.getElementById('creators-list');
+                    if (users.length === 0) {
+                        list.innerHTML = "目前尚無創作者";
+                        return;
+                    }
+                    list.innerHTML = users.map(u => `
+                        <div class="user-card" onclick="location.href='user.html?uid=${u.uid}'">
+                            <img src="${u.profileImage}" onerror="this.src='https://via.placeholder.com/45'">
+                            <b>${u.name}</b>
+                        </div>
+                    `).join('');
+                })
+                .catch(err => {
+                    document.getElementById('creators-list').innerHTML = "無法載入創作者列表";
+                });
+        }
     </script>
 </body>
 </html>
